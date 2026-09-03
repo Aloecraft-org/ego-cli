@@ -157,22 +157,29 @@ wasm32-unknown-unknown`, [wasmtime] for WASI, and [trunk] plus
 
 `make test_browser` runs the same tests in a real browser via
 `wasm-bindgen-test-runner`, which needs a WebDriver on `PATH` or named by
-`GECKODRIVER` / `CHROMEDRIVER`. CI installs Firefox with geckodriver and
-Chrome with chromedriver explicitly and runs both, so the wasm is exercised
-on two engines rather than on whichever driver the runner image happened to
-leave on `PATH`.
+`GECKODRIVER` / `CHROMEDRIVER`. CI installs Firefox and geckodriver
+explicitly rather than using whatever the runner image left on `PATH`,
+since that would let the image decide which engine ran without saying so.
 
-Two things bite when running these inside a container, neither with an
-obvious error message:
+Three things to know, none of which reports what actually went wrong:
 
-- **The driver's major version must match the browser's.** chromedriver
-  refuses the session outright; it does say so, but only if you ask it for a
-  session by hand.
-- **`wasm-bindgen-test-runner` treats any driver output on stderr as a
-  failed start.** Its `has_failed()` is true whenever the child has written
-  a byte to stderr. In a container without IPv6, chromedriver logs
-  `CreatePlatformSocket() failed` there while binding IPv4 perfectly well,
-  and the runner kills it and reports `driver failed to bind port during
+- **Chrome does not work against a current chromedriver.**
+  `wasm-bindgen-test-runner` opens a Gecko session with W3C
+  `SpecNewSessionParameters` but a Chrome session with
+  `LegacyNewSessionParameters`, the JSON Wire shape modern chromedriver no
+  longer honours; the session it returns is then one it will not accept, and
+  the next command fails with `http status: 404`. Every wasm-bindgen from
+  0.2.114 through 0.2.127 does this, so it is not a version to wait out.
+  Chrome works against an older driver — chromedriver 141 yes, 152 no — which
+  is why CI runs Firefox.
+- **A driver and browser must match in major version.** chromedriver refuses
+  the session outright. It says so clearly, but only if you ask it for a
+  session by hand; the test runner never gets that far.
+- **`wasm-bindgen-test-runner` treats any driver output on stderr as a failed
+  start.** Its `has_failed()` is `any_stderr` while the child is still
+  running. In a container without IPv6, chromedriver logs
+  `CreatePlatformSocket() failed` to stderr while binding IPv4 perfectly
+  well, so the runner kills it and reports `driver failed to bind port during
   startup` — which is not what happened. `CHROMEDRIVER_ARGS=--silent` fixes
   it.
 

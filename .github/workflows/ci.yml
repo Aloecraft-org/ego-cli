@@ -71,14 +71,9 @@ jobs:
         run: make test_wasi
 
   browser:
-    name: Browser (${{ matrix.browser }})
+    name: Browser (firefox)
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        # Two engines, SpiderMonkey and V8, for the price of one more job.
-        browser: [firefox, chrome]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -96,36 +91,29 @@ jobs:
       # the runner image: what `ubuntu-latest` ships changes when the image
       # version rolls, and wasm-bindgen-test-runner silently picks whichever
       # driver it finds first on PATH -- so the image would be deciding which
-      # engine ran, without saying which. Naming the driver in GECKODRIVER /
-      # CHROMEDRIVER makes each leg test what its name claims.
+      # engine ran, without saying which. Naming it in GECKODRIVER settles it.
+      #
+      # Firefox specifically, and not Chrome. wasm-bindgen-test-runner opens a
+      # Gecko session with W3C `SpecNewSessionParameters`, but a Chrome session
+      # with `LegacyNewSessionParameters` -- the JSON Wire shape that modern
+      # chromedriver no longer honours. The session it hands back is then one
+      # it will not accept, so the next command 404s. This is not a version to
+      # wait out: every wasm-bindgen from 0.2.114 through 0.2.127 does it.
+      # Chrome does still work against an older chromedriver (141 yes, 152 no)
+      # if you want it locally; see README.
       #
       # These actions are referenced by their `latest` branch because that is
       # what they publish and document; setup-geckodriver has no release tags
       # to pin to. Pin to a commit SHA if a floating ref is not acceptable.
       - name: Install Firefox
-        if: matrix.browser == 'firefox'
         uses: browser-actions/setup-firefox@latest
       - name: Install geckodriver
-        if: matrix.browser == 'firefox'
         uses: browser-actions/setup-geckodriver@latest
       - name: Select geckodriver
-        if: matrix.browser == 'firefox'
         run: echo "GECKODRIVER=$(command -v geckodriver)" >> "$GITHUB_ENV"
-
-      - name: Install Chrome and chromedriver
-        id: chrome
-        if: matrix.browser == 'chrome'
-        uses: browser-actions/setup-chrome@latest
-        with:
-          # Guarantees a driver whose major version matches the browser;
-          # a mismatch is refused outright by chromedriver.
-          install-chromedriver: true
-      - name: Select chromedriver
-        if: matrix.browser == 'chrome'
-        run: echo "CHROMEDRIVER=${{ steps.chrome.outputs.chromedriver-path }}" >> "$GITHUB_ENV"
 
       - name: Build
         run: make build_browser
       # Runs via wasm-bindgen-test-runner (see .cargo/config.toml).
-      - name: Test (headless ${{ matrix.browser }})
+      - name: Test (headless Firefox)
         run: make test_browser
