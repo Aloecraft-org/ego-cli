@@ -251,6 +251,7 @@ version = "0.1.0"
 dependencies = [
  "crossterm",
  "ego_platform",
+ "futures-executor",
  "futures-util",
  "js-sys",
  "log",
