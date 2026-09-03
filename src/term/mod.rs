@@ -26,6 +26,15 @@
 //! selects which one [`platform`] gives you; both types are there either
 //! way, so a host that wants the other one names it.
 //!
+//! Two types rather than one type behind a flag, deliberately. Cargo
+//! features unify across a build graph, so if `runtime` decided what
+//! `NativeTerminal` *is*, any one crate in the build enabling it would
+//! decide for every other, and two crates wanting different backends could
+//! not both be served. A feature that *adds* a type is safe under
+//! unification; a feature that *changes* a type is not. So `runtime` picks
+//! only which backend [`platform`] hands back — a default, not a
+//! redefinition.
+//!
 //! # Raw mode is the axis
 //!
 //! Everything a line editor does — moving by word, recalling history,
