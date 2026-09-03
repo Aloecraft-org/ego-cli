@@ -63,6 +63,45 @@ if !session.capabilities().raw_mode {
 | `term` | The `Terminal` trait and the four backends. |
 | `session` | The loop between a terminal and an editor. |
 
+## Without an async runtime
+
+The default native backend reads through crossterm's `EventStream` and
+writes through `ego_platform`, both of which want a tokio runtime. A host
+whose loop is its own — a state machine that wants a line at exactly one
+point and is happy to block there — should not have to take a runtime for
+that, so there is a second native backend that needs none:
+
+```toml
+ego_cli = { version = "0.1", default-features = false }
+```
+
+```rust
+use ego_cli::{Session, term};   // term::platform() is now BlockingNative
+
+let mut session = Session::new(term::platform()?);
+let line = futures_executor::block_on(session.read_line())?;
+```
+
+`BlockingNative` blocks on `crossterm::event::read` and writes with
+`std::io`, so no future it returns is ever `Pending` and a `Session` over it
+runs to completion on the first poll — under any executor, with nothing
+behind it. `BlockingNative::poll(timeout)` is there for a host that wants to
+interleave the wait with its own work.
+
+What turning `runtime` off costs: `term::native::NativeTerminal`,
+`term::stdio::CookedStdio`, and `History`'s `load`/`save` (`encode` and
+`decode` stay, so a host still persists history however it likes). What it
+saves, measured on a minimal consumer binary at `opt-level=3` with LTO:
+
+| | crates in the tree | release binary |
+|---|---|---|
+| default | 68 | 609,736 B |
+| `default-features = false` | 33 | 509,992 B |
+
+Both native backends exist whenever they compile; the feature only decides
+which one `term::platform()` hands back, so a host that wants the other one
+names it directly.
+
 ## Extending it
 
 **Completion.** Implement `Completer`, or start from `WordCompleter`:

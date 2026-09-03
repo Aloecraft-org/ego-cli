@@ -52,6 +52,12 @@ jobs:
         run: cargo build
       - name: Test
         run: cargo test
+      # The runtime-free configuration is a supported build, so it is a
+      # tested one: without this, `--no-default-features` rots silently.
+      - name: Build and test without the runtime feature
+        run: |
+          cargo build --no-default-features
+          cargo test --no-default-features
 
   wasi:
     name: WASI (wasm32-wasip2)

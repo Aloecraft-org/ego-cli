@@ -5,7 +5,7 @@
 //! Entry points: [`History::new`], [`History::push`], [`History::older`],
 //! [`History::newer`], [`History::end_navigation`], [`History::entries`],
 //! [`History::clear`], [`History::encode`], [`History::decode`],
-//! [`History::load`], [`History::save`].
+//! `History::load`, `History::save` (both with the `runtime` feature).
 //!
 //! Configurable values: [`DEFAULT_LIMIT`], and the four switches on
 //! [`History`] — [`History::set_limit`],
@@ -25,7 +25,8 @@
 //!
 //! # Persistence
 //!
-//! [`load`](History::load) and [`save`](History::save) go through
+//! [`encode`](History::encode) and [`decode`](History::decode) are always
+//! available. With the `runtime` feature, `load` and `save` also go through
 //! `ego_platform::BlobStore`, so the same two lines persist to a directory
 //! natively, to a directory under wasmtime's preopens on WASI, and to
 //! IndexedDB in the browser. The wire format is the obvious one: entries
@@ -34,8 +35,10 @@
 //! escaping and stays greppable.
 
 use std::collections::VecDeque;
+#[cfg(feature = "runtime")]
 use std::io;
 
+#[cfg(feature = "runtime")]
 use ego_platform::BlobStore;
 
 pub const DEFAULT_LIMIT: usize = 1000;
@@ -224,6 +227,11 @@ impl History {
 
     /// Load the entries stored under `key`, leaving them untouched if there
     /// is nothing there yet.
+    ///
+    /// Requires the `runtime` feature, which brings in `ego_platform`.
+    /// Without it, [`encode`](Self::encode) and [`decode`](Self::decode) are
+    /// still here and a host persists them however it likes.
+    #[cfg(feature = "runtime")]
     pub async fn load(&mut self, store: &dyn BlobStore, key: &str) -> io::Result<()> {
         if let Some(bytes) = store.get(key).await? {
             self.decode(&bytes);
@@ -232,6 +240,9 @@ impl History {
     }
 
     /// Store the entries under `key`, replacing atomically.
+    ///
+    /// Requires the `runtime` feature; see `load`.
+    #[cfg(feature = "runtime")]
     pub async fn save(&self, store: &dyn BlobStore, key: &str) -> io::Result<()> {
         store.put(key, self.encode()).await
     }

@@ -29,6 +29,17 @@ $(eval $(call cargo_targets,build))
 $(eval $(call cargo_targets,check))
 $(eval $(call cargo_targets,test))
 
+# The runtime-free native build: no ego_platform, no tokio, no executor.
+SLIM:=--no-default-features
+
+build_slim:
+	$(CARGO_ENV) cargo build $(SLIM)
+check_slim:
+	$(CARGO_ENV) cargo check $(SLIM)
+test_slim:
+	$(CARGO_ENV) cargo test $(SLIM)
+slim: check_slim test_slim build_slim
+
 # --- the demo ---
 
 run:
@@ -55,6 +66,7 @@ fmt_check:
 
 clippy:
 	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets $(SLIM) -- -D warnings
 	cargo clippy --all-targets $(TARGET_WASI) -- -D warnings
 	cargo clippy --all-targets $(TARGET_BROWSER) -- -D warnings
 
@@ -63,6 +75,7 @@ doc:
 
 all: check test build
 
-ci: fmt_check clippy check test
+ci: fmt_check clippy check test slim
 
-.PHONY: quiet clean run run_wasi serve dist fmt fmt_check clippy doc all ci
+.PHONY: quiet clean run run_wasi serve dist fmt fmt_check clippy doc all ci \
+	build_slim check_slim test_slim slim

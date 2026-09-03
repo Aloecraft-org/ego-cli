@@ -10,10 +10,30 @@
 //! platform will not say.
 //!
 //! Fan-out points: the backends. [`mem::MemTerminal`] everywhere;
-//! [`native::NativeTerminal`] off wasm; [`stdio::CookedStdio`] wherever
-//! there is a stdin; `browser::XtermTerminal` in the browser. Which one
-//! [`PlatformTerminal`] names is decided at the bottom of this file, and
-//! nowhere else.
+//! `blocking::BlockingNative` and `native::NativeTerminal` off wasm;
+//! `stdio::CookedStdio` wherever there is a stdin; `browser::XtermTerminal`
+//! in the browser. Which one [`PlatformTerminal`] names is decided at the
+//! bottom of this file, and nowhere else.
+//!
+//! # Two native backends
+//!
+//! `native::NativeTerminal` reads through crossterm's `EventStream` and
+//! writes through `ego_platform`, both of which want an async runtime.
+//! `blocking::BlockingNative` blocks on crossterm and writes with
+//! `std::io`, so no future it returns is ever `Pending` and a `Session`
+//! over it runs to completion under any executor -- no runtime, and no
+//! tokio in the dependency tree. The `runtime` feature (on by default)
+//! selects which one [`platform`] gives you; both types are there either
+//! way, so a host that wants the other one names it.
+//!
+//! Two types rather than one type behind a flag, deliberately. Cargo
+//! features unify across a build graph, so if `runtime` decided what
+//! `NativeTerminal` *is*, any one crate in the build enabling it would
+//! decide for every other, and two crates wanting different backends could
+//! not both be served. A feature that *adds* a type is safe under
+//! unification; a feature that *changes* a type is not. So `runtime` picks
+//! only which backend [`platform`] hands back — a default, not a
+//! redefinition.
 //!
 //! # Raw mode is the axis
 //!
@@ -40,10 +60,17 @@ use crate::key::KeyPress;
 
 pub mod mem;
 
-#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+#[cfg(all(
+    feature = "runtime",
+    not(all(target_arch = "wasm32", target_os = "unknown"))
+))]
 pub mod stdio;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub mod blocking;
+#[cfg(not(target_arch = "wasm32"))]
+pub(crate) mod crossterm_key;
+#[cfg(all(feature = "runtime", not(target_arch = "wasm32")))]
 pub mod native;
 
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
@@ -138,24 +165,39 @@ pub trait Terminal {
 // `browser::XtermTerminal::attach` with the terminal object instead.
 
 /// The backend for this target.
-#[cfg(not(target_arch = "wasm32"))]
+///
+/// With the `runtime` feature (the default) this is the async backend; with
+/// it off, [`blocking::BlockingNative`], which needs no executor. Both types
+/// exist whenever they compile, so a host that wants the other one names it
+/// directly rather than flipping a feature.
+#[cfg(all(feature = "runtime", not(target_arch = "wasm32")))]
 pub type PlatformTerminal = native::NativeTerminal;
+
+/// The backend for this target: no `runtime` feature, so no async runtime.
+#[cfg(all(not(feature = "runtime"), not(target_arch = "wasm32")))]
+pub type PlatformTerminal = blocking::BlockingNative;
 
 /// The backend for this target.
 ///
 /// WASI Preview 2 has no way to ask the host for raw mode, so this is the
 /// line-at-a-time backend; see the module docs.
-#[cfg(all(target_arch = "wasm32", target_env = "p2"))]
+#[cfg(all(feature = "runtime", target_arch = "wasm32", target_env = "p2"))]
 pub type PlatformTerminal = stdio::CookedStdio;
 
 /// Open the terminal this target has.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(feature = "runtime", not(target_arch = "wasm32")))]
 pub fn platform() -> Result<PlatformTerminal> {
     native::NativeTerminal::new()
 }
 
 /// Open the terminal this target has.
-#[cfg(all(target_arch = "wasm32", target_env = "p2"))]
+#[cfg(all(not(feature = "runtime"), not(target_arch = "wasm32")))]
+pub fn platform() -> Result<PlatformTerminal> {
+    blocking::BlockingNative::new()
+}
+
+/// Open the terminal this target has.
+#[cfg(all(feature = "runtime", target_arch = "wasm32", target_env = "p2"))]
 pub fn platform() -> Result<PlatformTerminal> {
     Ok(stdio::CookedStdio::new())
 }

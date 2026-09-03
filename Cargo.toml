@@ -19,18 +19,33 @@ path = "src/lib.rs"
 [[bin]]
 name = "ego-cli-demo"
 path = "src/main.rs"
+required-features = ["runtime"]
+
+[features]
+default = ["runtime"]
+# The backends that need an async runtime: `term::native::NativeTerminal`
+# (crossterm's EventStream), `term::stdio::CookedStdio`, and `History`'s
+# blob-store persistence. Pulls in ego_platform, tokio and
+# crossterm/event-stream.
+#
+# Turn it off for a native build that has no runtime and does not want one.
+# `term::blocking::BlockingNative` remains, `term::platform()` returns it,
+# and nothing in the dependency tree needs an executor.
+runtime = ["dep:ego_platform", "dep:futures-util", "dep:tokio", "crossterm/event-stream"]
 
 [dependencies]
-ego_platform = { git = "https://github.com/aloecraft-org/ego-platform", branch = "main" }
 log = "0.4"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
+ego_platform = { git = "https://github.com/aloecraft-org/ego-platform", branch = "main", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-crossterm = { version = "0.29", features = ["event-stream"] }
-futures-util = { version = "0.3", default-features = false }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util"] }
+crossterm = "0.29"
+futures-util = { version = "0.3", default-features = false, optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util"], optional = true }
 
+# The browser backend queues xterm.js input on a channel; tokio's `sync` is
+# runtime-free, so this is not the `runtime` feature's tokio.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1", features = ["sync", "macros", "io-util", "rt"] }
 
@@ -41,6 +56,16 @@ wasm-bindgen = "=0.2.114"
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
 web-sys = { version = "0.3", features = ["console"] }
+
+[dev-dependencies]
+# Always present so the tests build with or without `runtime`.
+ego_platform = { git = "https://github.com/aloecraft-org/ego-platform", branch = "main" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+# Proves the point of `BlockingNative`: a `Session` over it completes under a
+# plain executor with no runtime anywhere.
+futures-executor = "0.3"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies]
 wasm-bindgen-test = "0.3"

@@ -2,9 +2,12 @@
 //! `ego_platform`'s blob store.
 
 mod common;
-use common::{async_test, test};
+#[cfg(feature = "runtime")]
+use common::async_test;
+use common::test;
 
 use ego_cli::History;
+#[cfg(feature = "runtime")]
 use ego_platform::MemStore;
 
 fn filled(lines: &[&str]) -> History {
@@ -140,6 +143,7 @@ fn decoding_survives_a_damaged_file() {
     assert_eq!(entries.last(), Some(&"two"));
 }
 
+#[cfg(feature = "runtime")]
 #[async_test]
 async fn a_history_survives_through_a_blob_store() {
     let store = MemStore::new();
@@ -151,6 +155,7 @@ async fn a_history_survives_through_a_blob_store() {
     assert_eq!(restored.entries().collect::<Vec<_>>(), ["one", "two"]);
 }
 
+#[cfg(feature = "runtime")]
 #[async_test]
 async fn loading_from_an_empty_store_changes_nothing() {
     let store = MemStore::new();
@@ -159,6 +164,7 @@ async fn loading_from_an_empty_store_changes_nothing() {
     assert_eq!(history.entries().collect::<Vec<_>>(), ["kept"]);
 }
 
+#[cfg(feature = "runtime")]
 #[async_test]
 async fn a_saved_history_reloads_under_the_current_limit() {
     let store = MemStore::new();
