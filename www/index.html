@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ego-cli</title>
+
+  <!-- The page owns xterm.js: ego-cli imports nothing, it is handed the
+       Terminal object. Swap this import map for a bundler, a <script> tag,
+       or a different version and nothing in the Rust changes. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@xterm/xterm": "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm",
+        "@xterm/addon-fit": "https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/+esm"
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" />
+
+  <link data-trunk rel="rust" href="../Cargo.toml" data-bin="ego-cli-demo" data-wasm-opt="z" />
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #1e1e1e; }
+    #terminal { width: 100%; height: 100%; }
+  </style>
+</head>
+
+<body>
+  <div id="terminal"></div>
+
+  <script type="module">
+    import init, { start } from './ego-cli-demo.js';
+    import { Terminal } from '@xterm/xterm';
+    import { FitAddon } from '@xterm/addon-fit';
+
+    const term = new Terminal({
+      cursorBlink: true,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+      fontSize: 14,
+      theme: { background: '#1e1e1e' },
+    });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(document.getElementById('terminal'));
+    fit.fit();
+    // ego-cli reads term.cols/term.rows on the next keystroke, so a resize
+    // needs nothing here beyond telling xterm.js about it.
+    window.addEventListener('resize', () => fit.fit());
+
+    await init();
+    // example: omits error handling — a throw from start() surfaces in the
+    // browser console, which is where you want it while integrating.
+    await start(term);
+  </script>
+</body>
+
+</html>
