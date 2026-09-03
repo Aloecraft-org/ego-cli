@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script type="importmap">
+    {
+      "imports": {
+        "@xterm/xterm": "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/+esm",
+        "@xterm/addon-fit": "https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/+esm"
+      }
+    }
+    </script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EgoShell</title>
+    
+    <link data-trunk rel="rust" href="../Cargo.toml" data-wasm-opt="z" data-bin="egoshell" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+
+    <style>
+        body { margin: 0; padding: 0; background: #1e1e1e; font-family: 'Fira Code', monospace; }
+        #terminal { width: 100%; height: 100vh; }
+        .mode-select {
+            position: fixed; top: 10px; right: 10px; z-index: 100;
+            background: rgba(255,255,255,0.1); padding: 5px; border-radius: 4px;
+        }
+        .mode-select a { color: #fff; text-decoration: none; margin: 0 5px; font-size: 12px; }
+        .mode-select a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="mode-select">
+        <a href="?mode=tui">TUI Mode</a> | <a href="?mode=lite">Lite Mode</a>
+    </div>
+    <div id="terminal"></div>
+
+    <script type="module">
+        import init, { startShell, sendInput } from './egoshell.js';
+        import { Terminal } from "@xterm/xterm";
+        import { FitAddon } from "@xterm/addon-fit";
+
+        async function run() {
+            await init();
+
+            const params = new URLSearchParams(window.location.search);
+            const mode = params.get('mode') || 'tui';
+            console.log(`Starting EgoShell in ${mode} mode...`);
+
+            // CHANGE: Only initialize JS-side terminal in Lite mode
+            // In TUI mode, Rust (ratatui-xterm-js) creates its own terminal instance.
+            if (mode === 'lite') {
+                const term = new Terminal({
+                    cursorBlink: true,
+                    fontFamily: "'Fira Code', monospace",
+                    fontSize: 14,
+                    theme: { background: '#1e1e1e' }
+                });
+                
+                window.term = term; // Rust needs this for Lite mode output
+                
+                const fitAddon = new FitAddon();
+                term.loadAddon(fitAddon);
+                term.open(document.getElementById('terminal'));
+                fitAddon.fit();
+                window.addEventListener('resize', () => fitAddon.fit());
+
+                term.writeln('EgoShell v0.1.0 (Lite Mode)');
+                term.write('> ');
+                
+                let currentLine = '';
+                term.onData(data => {
+                    if (data === '\r') {
+                        term.writeln('');
+                        sendInput(currentLine);
+                        currentLine = '';
+                    } else if (data === '\x7f') {
+                        if (currentLine.length > 0) {
+                            currentLine = currentLine.slice(0, -1);
+                            term.write('\b \b');
+                        }
+                    } else {
+                        currentLine += data;
+                        term.write(data);
+                    }
+                });
+            }
+
+            // Start Rust Logic
+            try {
+                await startShell(mode);
+            } catch (e) {
+                console.error("Failed to start shell:", e);
+                // If term exists (Lite mode), write to it. Otherwise alert.
+                if (window.term) {
+                    window.term.writeln(`\r\nError: ${e}`);
+                }
+            }
+        }
+
+        run();
+    </script>
+</body>
+</html>

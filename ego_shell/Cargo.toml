@@ -1,0 +1,75 @@
+[package]
+name = "egoshell"
+version = "0.1.2"
+edition = "2024"
+
+[lib]
+name = "egoshell"
+path = "src/lib.rs"
+
+[dependencies]
+tokio = { version = "1", default-features = false }
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+aloeplatform = { path = "../aloeplatform" }
+ego2_proto = { path = "../ego2_proto" }
+log = "0.4"
+env = "1.0.1"
+futures = "0.3"
+bytes = "1"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+chacha20poly1305 = "0.10"
+rand_core = { version = "0.6", features = ["std"] }
+rand = "0.8"
+hex = "0.4"
+base64 = "0.22"
+crossterm = "0.28"
+
+# --- Browser and Native (Backend libs)
+[target.'cfg(not(all(target_arch = "wasm32", target_env = "p2")))'.dependencies]
+ratatui-xterm-js = { path = "../ratatui-xterm-js" }
+ratatui = "0.29"
+crossterm = { version = "0.28.1", features = ["event-stream"] }
+
+# --- Native (Linux/Mac/Windows) ---
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+crossterm = "0.28"
+
+# --- WASM Common (Both CLI and Browser) ---
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tokio = { version = "1", features = ["sync", "macros", "io-util", "rt"] }
+futures = "0.3"
+getrandom = { version = "0.2", features = ["js"] }
+pqc_kyber = { version = "0.7.1", features = ["wasm"] }
+
+# Browser only
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+    "Window", "UrlSearchParams", "Location", "Document", "HtmlElement",
+    "console", "WebSocket", "MessageEvent", "ErrorEvent",
+    "ResizeObserver", "ResizeObserverEntry",
+] }
+js-sys = "0.3"
+ws_stream_wasm = { version = "0.7", features = ["tokio_io"] }
+async_io_stream = { version = "0.3", features = ["tokio_io"] }
+console_log = "1.0"
+web-time = "1.1"
+console_error_panic_hook = "0.1"
+
+# --- WASI Specific (wasm32-wasi) ---
+[target.'cfg(all(target_arch = "wasm32", target_env = "p2"))'.dependencies]
+tokio = { version = "1", features = ["sync", "macros", "io-util", "rt", "time"] }
+getrandom = { version = "0.2", features = ["std"] }
+wasi = "0.14.7"
+wasi-preview2-prototype = "0.0.3"
+
+# [patch.crates-io]
+# crossterm = { git = "https://github.com/aschey/crossterm", rev = "3b6db3586eda31a803a67af7bdb1d0937cf26485" }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dev-dependencies]
+wasm-bindgen-test = "0.3"
