@@ -153,6 +153,33 @@ Prerequisites beyond a stable toolchain: `rustup target add wasm32-wasip2
 wasm32-unknown-unknown`, [wasmtime] for WASI, and [trunk] plus
 `wasm-bindgen-cli` (pinned to the version in `Cargo.toml`) for the browser.
 
+### Browser tests
+
+`make test_browser` runs the same tests in a real browser via
+`wasm-bindgen-test-runner`, which needs a WebDriver on `PATH` or named by
+`GECKODRIVER` / `CHROMEDRIVER`. CI installs Firefox with geckodriver and
+Chrome with chromedriver explicitly and runs both, so the wasm is exercised
+on two engines rather than on whichever driver the runner image happened to
+leave on `PATH`.
+
+Two things bite when running these inside a container, neither with an
+obvious error message:
+
+- **The driver's major version must match the browser's.** chromedriver
+  refuses the session outright; it does say so, but only if you ask it for a
+  session by hand.
+- **`wasm-bindgen-test-runner` treats any driver output on stderr as a
+  failed start.** Its `has_failed()` is true whenever the child has written
+  a byte to stderr. In a container without IPv6, chromedriver logs
+  `CreatePlatformSocket() failed` there while binding IPv4 perfectly well,
+  and the runner kills it and reports `driver failed to bind port during
+  startup` — which is not what happened. `CHROMEDRIVER_ARGS=--silent` fixes
+  it.
+
+If the driver cannot find the browser on its own, a `webdriver.json` beside
+`Cargo.toml` sets the capabilities to launch it with (point
+`WASM_BINDGEN_TEST_WEBDRIVER_JSON` elsewhere to use another path).
+
 ## In the browser
 
 The page owns the xterm.js terminal; `ego-cli` imports nothing and is handed
