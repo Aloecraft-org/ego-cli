@@ -15,7 +15,7 @@ env:
   # Must match the pinned wasm-bindgen version in Cargo.toml/Cargo.lock, and
   # the one ego-platform pins. The bindgen ABI is unstable and
   # wasm-bindgen-test-runner refuses to run on a mismatch.
-  WASM_BINDGEN_VERSION: 0.2.114
+  WASM_BINDGEN_VERSION: 0.2.127
 
 jobs:
   lint:
@@ -104,7 +104,8 @@ jobs:
       # with `LegacyNewSessionParameters` -- the JSON Wire shape that modern
       # chromedriver no longer honours. The session it hands back is then one
       # it will not accept, so the next command 404s. This is not a version to
-      # wait out: every wasm-bindgen from 0.2.114 through 0.2.127 does it.
+      # wait out: every wasm-bindgen through 0.2.127, the version pinned here,
+      # does it.
       # Chrome does still work against an older chromedriver (141 yes, 152 no)
       # if you want it locally; see README.
       #
