@@ -40,6 +40,21 @@ async fn the_prompt_and_the_line_are_drawn() {
 }
 
 #[async_test]
+async fn ctrl_l_clears_without_scrolling_and_redraws_the_line() {
+    let mut session = session("ab\x0c\r");
+    session.set_prompt("$ ");
+    assert_eq!(
+        session.read_line().await.unwrap(),
+        ReadOutcome::Line("ab".into())
+    );
+    let output = session.terminal().output();
+    let clear = output.find("\x1b[H\x1b[J").expect("a clear");
+    assert!(!output.contains("\x1b[2J"), "{output:?}");
+    assert!(output[clear..].contains("$ "), "{output:?}");
+    assert!(output[clear..].contains("ab"), "{output:?}");
+}
+
+#[async_test]
 async fn arrows_edit_the_line_before_it_is_accepted() {
     // "ac", Left, "b" -> "abc"
     assert_eq!(read("ac\x1b[Db\r").await, ReadOutcome::Line("abc".into()));
