@@ -233,7 +233,14 @@ impl<T: Terminal> Session<T> {
                         EditOutcome::Complete => self.complete().await?,
 
                         EditOutcome::ClearScreen => {
-                            self.term.write("\x1b[H\x1b[2J").await?;
+                            // Home, then erase to the end of the screen.
+                            // Not ED 2 (`\x1b[2J`): VS Code's terminal
+                            // answers that by scrolling the screen into
+                            // scrollback, and its viewport is left one row
+                            // short, hiding the line just redrawn. Erasing
+                            // below the home position clears the same
+                            // cells and scrolls nothing anywhere.
+                            self.term.write("\x1b[H\x1b[J").await?;
                             self.renderer.forget();
                             self.draw("").await?;
                         }
